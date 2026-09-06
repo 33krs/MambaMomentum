@@ -19,10 +19,20 @@ import Card from "../components/ui/Card";
 import type {
   Exercise,
   WorkoutSession,
+  WorkoutSet,
   WorkoutSetInput,
   WorkoutTemplate,
-  WorkoutTemplateExerciseInput,
 } from "../types";
+
+interface ExerciseRow {
+  exercise_id: number;
+  sets_count: number;
+}
+
+const inputClass =
+  "rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100";
+const smallInputClass =
+  "rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100";
 
 function todayInputValue(): string {
   return new Date().toISOString().slice(0, 10);
@@ -36,6 +46,48 @@ function apiErrorMessage(err: unknown, fallback: string): string {
   return fallback;
 }
 
+function expandRows(rows: ExerciseRow[]): WorkoutSetInput[] {
+  const result: WorkoutSetInput[] = [];
+  for (const row of rows) {
+    for (let i = 1; i <= row.sets_count; i++) {
+      result.push({ exercise_id: row.exercise_id, set_number: i, reps: 1, weight_kg: 0, rpe: null });
+    }
+  }
+  return result;
+}
+
+function collapseSetsToRows(sets: WorkoutSet[], fallbackExerciseId: number): ExerciseRow[] {
+  const order: number[] = [];
+  const counts = new Map<number, number>();
+  for (const s of sets) {
+    const id = s.exercise_id ?? fallbackExerciseId;
+    if (!counts.has(id)) {
+      counts.set(id, 0);
+      order.push(id);
+    }
+    counts.set(id, (counts.get(id) ?? 0) + 1);
+  }
+  return order.map((id) => ({ exercise_id: id, sets_count: counts.get(id) ?? 1 }));
+}
+
+function groupSetsByExercise(
+  sets: WorkoutSet[],
+): { key: string; name: string; deleted: boolean; count: number }[] {
+  const order: string[] = [];
+  const map = new Map<string, { name: string; deleted: boolean; count: number }>();
+  for (const s of sets) {
+    const key = s.exercise_id != null ? `id:${s.exercise_id}` : `name:${s.exercise_name}`;
+    const existing = map.get(key);
+    if (existing) {
+      existing.count += 1;
+    } else {
+      map.set(key, { name: s.exercise?.name ?? s.exercise_name, deleted: !s.exercise, count: 1 });
+      order.push(key);
+    }
+  }
+  return order.map((key) => ({ key, ...map.get(key)! }));
+}
+
 export default function WorkoutsPage() {
   const [sessions, setSessions] = useState<WorkoutSession[]>([]);
   const [exercises, setExercises] = useState<Exercise[]>([]);
@@ -45,7 +97,7 @@ export default function WorkoutsPage() {
   // Nuevo entrenamiento
   const [name, setName] = useState("Entrenamiento");
   const [date, setDate] = useState(todayInputValue());
-  const [sets, setSets] = useState<WorkoutSetInput[]>([]);
+  const [rows, setRows] = useState<ExerciseRow[]>([]);
   const [newExerciseName, setNewExerciseName] = useState("");
   const [error, setError] = useState<string | null>(null);
 
@@ -56,13 +108,13 @@ export default function WorkoutsPage() {
 
   // Plantillas
   const [templateName, setTemplateName] = useState("Rutina");
-  const [templateItems, setTemplateItems] = useState<WorkoutTemplateExerciseInput[]>([]);
+  const [templateItems, setTemplateItems] = useState<ExerciseRow[]>([]);
   const [templateError, setTemplateError] = useState<string | null>(null);
   const [applyDates, setApplyDates] = useState<Record<number, string>>({});
 
-  // Edición de series de una sesión ya guardada
+  // Edición de una sesión ya guardada
   const [editingSessionId, setEditingSessionId] = useState<number | null>(null);
-  const [editingSets, setEditingSets] = useState<WorkoutSetInput[]>([]);
+  const [editingRows, setEditingRows] = useState<ExerciseRow[]>([]);
   const [sessionEditError, setSessionEditError] = useState<string | null>(null);
 
   function loadData() {
@@ -78,20 +130,17 @@ export default function WorkoutsPage() {
 
   useEffect(loadData, []);
 
-  function addSetRow() {
+  function addRow() {
     if (exercises.length === 0) return;
-    setSets((prev) => [
-      ...prev,
-      { exercise_id: exercises[0].id, set_number: prev.length + 1, reps: 8, weight_kg: 0 },
-    ]);
+    setRows((prev) => [...prev, { exercise_id: exercises[0].id, sets_count: 3 }]);
   }
 
-  function updateSet(index: number, patch: Partial<WorkoutSetInput>) {
-    setSets((prev) => prev.map((s, i) => (i === index ? { ...s, ...patch } : s)));
+  function updateRow(index: number, patch: Partial<ExerciseRow>) {
+    setRows((prev) => prev.map((r, i) => (i === index ? { ...r, ...patch } : r)));
   }
 
-  function removeSet(index: number) {
-    setSets((prev) => prev.filter((_, i) => i !== index));
+  function removeRow(index: number) {
+    setRows((prev) => prev.filter((_, i) => i !== index));
   }
 
   async function handleAddExercise(event: FormEvent) {
@@ -133,13 +182,13 @@ export default function WorkoutsPage() {
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setError(null);
-    if (sets.length === 0) {
-      setError("Agrega al menos una serie");
+    if (rows.length === 0) {
+      setError("Agrega al menos un ejercicio");
       return;
     }
     try {
-      await createWorkoutSession({ name, date, sets });
-      setSets([]);
+      await createWorkoutSession({ name, date, sets: expandRows(rows) });
+      setRows([]);
       setName("Entrenamiento");
       loadData();
     } catch {
@@ -155,13 +204,10 @@ export default function WorkoutsPage() {
   // --- Plantillas ---
   function addTemplateItemRow() {
     if (exercises.length === 0) return;
-    setTemplateItems((prev) => [
-      ...prev,
-      { exercise_id: exercises[0].id, sets_count: 3, order_index: prev.length },
-    ]);
+    setTemplateItems((prev) => [...prev, { exercise_id: exercises[0].id, sets_count: 3 }]);
   }
 
-  function updateTemplateItem(index: number, patch: Partial<WorkoutTemplateExerciseInput>) {
+  function updateTemplateItem(index: number, patch: Partial<ExerciseRow>) {
     setTemplateItems((prev) => prev.map((it, i) => (i === index ? { ...it, ...patch } : it)));
   }
 
@@ -177,7 +223,10 @@ export default function WorkoutsPage() {
       return;
     }
     try {
-      await createWorkoutTemplate({ name: templateName, items: templateItems });
+      await createWorkoutTemplate({
+        name: templateName,
+        items: templateItems.map((it, i) => ({ ...it, order_index: i })),
+      });
       setTemplateItems([]);
       setTemplateName("Rutina");
       loadData();
@@ -197,47 +246,36 @@ export default function WorkoutsPage() {
     loadData();
   }
 
-  // --- Edición de series de una sesión existente ---
+  // --- Edición de una sesión existente ---
   function startEditSession(session: WorkoutSession) {
     setSessionEditError(null);
     setEditingSessionId(session.id);
-    setEditingSets(
-      session.sets.map((s) => ({
-        exercise_id: s.exercise_id ?? exercises[0]?.id ?? 0,
-        set_number: s.set_number,
-        reps: s.reps,
-        weight_kg: s.weight_kg,
-        rpe: s.rpe,
-      })),
-    );
+    setEditingRows(collapseSetsToRows(session.sets, exercises[0]?.id ?? 0));
   }
 
   function cancelEditSession() {
     setEditingSessionId(null);
-    setEditingSets([]);
+    setEditingRows([]);
     setSessionEditError(null);
   }
 
-  function updateEditingSet(index: number, patch: Partial<WorkoutSetInput>) {
-    setEditingSets((prev) => prev.map((s, i) => (i === index ? { ...s, ...patch } : s)));
+  function updateEditingRow(index: number, patch: Partial<ExerciseRow>) {
+    setEditingRows((prev) => prev.map((r, i) => (i === index ? { ...r, ...patch } : r)));
   }
 
-  function removeEditingSet(index: number) {
-    setEditingSets((prev) => prev.filter((_, i) => i !== index));
+  function removeEditingRow(index: number) {
+    setEditingRows((prev) => prev.filter((_, i) => i !== index));
   }
 
-  function addEditingSetRow() {
+  function addEditingRow() {
     if (exercises.length === 0) return;
-    setEditingSets((prev) => [
-      ...prev,
-      { exercise_id: exercises[0].id, set_number: prev.length + 1, reps: 8, weight_kg: 0 },
-    ]);
+    setEditingRows((prev) => [...prev, { exercise_id: exercises[0].id, sets_count: 3 }]);
   }
 
   async function handleSaveSessionEdit(sessionId: number) {
     try {
       setSessionEditError(null);
-      await updateWorkoutSession(sessionId, { sets: editingSets });
+      await updateWorkoutSession(sessionId, { sets: expandRows(editingRows) });
       cancelEditSession();
       loadData();
     } catch {
@@ -249,7 +287,7 @@ export default function WorkoutsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Entrenamientos de fuerza</h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400">Registra tus sesiones con series, repeticiones y peso</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400">Registra qué ejercicios y cuántas series hiciste</p>
       </div>
 
       <Card title="Catálogo de ejercicios">
@@ -259,11 +297,11 @@ export default function WorkoutsPage() {
             value={newExerciseName}
             onChange={(e) => setNewExerciseName(e.target.value)}
             placeholder="Nuevo ejercicio (p. ej. Sentadilla)"
-            className="flex-1 rounded-md border border-slate-300 dark:border-slate-700 px-3 py-2 text-sm"
+            className={`flex-1 ${inputClass}`}
           />
           <button
             type="submit"
-            className="rounded-md bg-slate-100 dark:bg-slate-800 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
+            className="rounded-md bg-slate-100 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
           >
             Añadir
           </button>
@@ -272,23 +310,23 @@ export default function WorkoutsPage() {
         <div className="mt-3 flex flex-wrap gap-2">
           {exercises.map((ex) =>
             editingExerciseId === ex.id ? (
-              <div key={ex.id} className="flex items-center gap-1 rounded-full bg-brand-50 dark:bg-brand-900/30 px-2 py-1">
+              <div key={ex.id} className="flex items-center gap-1 rounded-full bg-brand-50 px-2 py-1 dark:bg-brand-900/30">
                 <input
                   autoFocus
                   type="text"
                   value={editingExerciseName}
                   onChange={(e) => setEditingExerciseName(e.target.value)}
-                  className="w-32 rounded border border-brand-300 px-1.5 py-0.5 text-xs"
+                  className="w-32 rounded border border-brand-300 px-1.5 py-0.5 text-xs dark:border-brand-700 dark:bg-slate-800 dark:text-slate-100"
                 />
                 <button
                   onClick={() => handleSaveExerciseName(ex.id)}
-                  className="text-xs font-medium text-brand-700 dark:text-brand-300 hover:underline"
+                  className="text-xs font-medium text-brand-700 hover:underline dark:text-brand-300"
                 >
                   Guardar
                 </button>
                 <button
                   onClick={() => setEditingExerciseId(null)}
-                  className="text-xs font-medium text-slate-500 dark:text-slate-400 hover:underline"
+                  className="text-xs font-medium text-slate-500 hover:underline dark:text-slate-400"
                 >
                   Cancelar
                 </button>
@@ -296,19 +334,19 @@ export default function WorkoutsPage() {
             ) : (
               <span
                 key={ex.id}
-                className="flex items-center gap-1.5 rounded-full bg-brand-50 dark:bg-brand-900/30 px-3 py-1 text-xs text-brand-700 dark:text-brand-300"
+                className="flex items-center gap-1.5 rounded-full bg-brand-50 px-3 py-1 text-xs text-brand-700 dark:bg-brand-900/30 dark:text-brand-300"
               >
                 {ex.name}
                 <button
                   onClick={() => startEditExercise(ex)}
-                  className="text-brand-500 dark:text-brand-400 hover:text-brand-800"
+                  className="text-brand-500 hover:text-brand-800 dark:text-brand-400"
                   title="Renombrar"
                 >
                   ✎
                 </button>
                 <button
                   onClick={() => handleDeleteExercise(ex.id)}
-                  className="text-brand-500 dark:text-brand-400 hover:text-red-600"
+                  className="text-brand-500 hover:text-red-600 dark:text-brand-400"
                   title="Eliminar"
                 >
                   ×
@@ -326,7 +364,7 @@ export default function WorkoutsPage() {
             value={templateName}
             onChange={(e) => setTemplateName(e.target.value)}
             placeholder="Nombre de la plantilla (p. ej. Pull)"
-            className="w-full rounded-md border border-slate-300 dark:border-slate-700 px-3 py-2 text-sm sm:w-64"
+            className={`w-full sm:w-64 ${inputClass}`}
           />
           <div className="space-y-2">
             {templateItems.map((item, index) => (
@@ -334,7 +372,7 @@ export default function WorkoutsPage() {
                 <select
                   value={item.exercise_id}
                   onChange={(e) => updateTemplateItem(index, { exercise_id: Number(e.target.value) })}
-                  className="col-span-7 rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1.5 text-sm"
+                  className={`col-span-7 ${smallInputClass}`}
                 >
                   {exercises.map((ex) => (
                     <option key={ex.id} value={ex.id}>
@@ -347,7 +385,7 @@ export default function WorkoutsPage() {
                   min={1}
                   value={item.sets_count}
                   onChange={(e) => updateTemplateItem(index, { sets_count: Number(e.target.value) })}
-                  className="col-span-3 rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1.5 text-sm"
+                  className={`col-span-3 ${smallInputClass}`}
                   placeholder="N.º series"
                 />
                 <button
@@ -363,7 +401,7 @@ export default function WorkoutsPage() {
               type="button"
               onClick={addTemplateItemRow}
               disabled={exercises.length === 0}
-              className="rounded-md bg-slate-100 dark:bg-slate-800 px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-50"
+              className="rounded-md bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-200 disabled:opacity-50 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
             >
               + Añadir ejercicio
             </button>
@@ -378,9 +416,12 @@ export default function WorkoutsPage() {
         </form>
 
         {templates.length > 0 && (
-          <div className="mt-5 space-y-3 border-t border-slate-100 dark:border-slate-800 pt-4">
+          <div className="mt-5 space-y-3 border-t border-slate-100 pt-4 dark:border-slate-800">
             {templates.map((tpl) => (
-              <div key={tpl.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 dark:border-slate-800 p-3">
+              <div
+                key={tpl.id}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 p-3 dark:border-slate-800"
+              >
                 <div>
                   <p className="font-medium text-slate-800 dark:text-slate-100">{tpl.name}</p>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -391,10 +432,8 @@ export default function WorkoutsPage() {
                   <input
                     type="date"
                     value={applyDates[tpl.id] ?? todayInputValue()}
-                    onChange={(e) =>
-                      setApplyDates((prev) => ({ ...prev, [tpl.id]: e.target.value }))
-                    }
-                    className="rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1 text-xs"
+                    onChange={(e) => setApplyDates((prev) => ({ ...prev, [tpl.id]: e.target.value }))}
+                    className={`px-2 py-1 text-xs ${inputClass}`}
                   />
                   <button
                     onClick={() => handleApplyTemplate(tpl.id)}
@@ -424,7 +463,7 @@ export default function WorkoutsPage() {
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="mt-1 w-full rounded-md border border-slate-300 dark:border-slate-700 px-3 py-2 text-sm"
+                className={`mt-1 w-full ${inputClass}`}
               />
             </div>
             <div>
@@ -433,18 +472,18 @@ export default function WorkoutsPage() {
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                className="mt-1 w-full rounded-md border border-slate-300 dark:border-slate-700 px-3 py-2 text-sm"
+                className={`mt-1 w-full ${inputClass}`}
               />
             </div>
           </div>
 
           <div className="space-y-2">
-            {sets.map((set, index) => (
+            {rows.map((row, index) => (
               <div key={index} className="grid grid-cols-12 items-center gap-2">
                 <select
-                  value={set.exercise_id}
-                  onChange={(e) => updateSet(index, { exercise_id: Number(e.target.value) })}
-                  className="col-span-5 rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1.5 text-sm"
+                  value={row.exercise_id}
+                  onChange={(e) => updateRow(index, { exercise_id: Number(e.target.value) })}
+                  className={`col-span-7 ${smallInputClass}`}
                 >
                   {exercises.map((ex) => (
                     <option key={ex.id} value={ex.id}>
@@ -455,36 +494,15 @@ export default function WorkoutsPage() {
                 <input
                   type="number"
                   min={1}
-                  value={set.reps}
-                  onChange={(e) => updateSet(index, { reps: Number(e.target.value) })}
-                  className="col-span-2 rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1.5 text-sm"
-                  placeholder="Reps"
-                />
-                <input
-                  type="number"
-                  min={0}
-                  step={0.5}
-                  value={set.weight_kg}
-                  onChange={(e) => updateSet(index, { weight_kg: Number(e.target.value) })}
-                  className="col-span-2 rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1.5 text-sm"
-                  placeholder="Kg"
-                />
-                <input
-                  type="number"
-                  min={0}
-                  max={10}
-                  step={0.5}
-                  value={set.rpe ?? ""}
-                  onChange={(e) =>
-                    updateSet(index, { rpe: e.target.value ? Number(e.target.value) : null })
-                  }
-                  className="col-span-2 rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1.5 text-sm"
-                  placeholder="RPE"
+                  value={row.sets_count}
+                  onChange={(e) => updateRow(index, { sets_count: Number(e.target.value) })}
+                  className={`col-span-3 ${smallInputClass}`}
+                  placeholder="N.º series"
                 />
                 <button
                   type="button"
-                  onClick={() => removeSet(index)}
-                  className="col-span-1 text-xs font-medium text-red-600 hover:underline"
+                  onClick={() => removeRow(index)}
+                  className="col-span-2 text-xs font-medium text-red-600 hover:underline"
                 >
                   Quitar
                 </button>
@@ -492,11 +510,11 @@ export default function WorkoutsPage() {
             ))}
             <button
               type="button"
-              onClick={addSetRow}
+              onClick={addRow}
               disabled={exercises.length === 0}
-              className="rounded-md bg-slate-100 dark:bg-slate-800 px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-50"
+              className="rounded-md bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-200 disabled:opacity-50 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
             >
-              + Añadir serie
+              + Añadir ejercicio
             </button>
           </div>
 
@@ -518,7 +536,7 @@ export default function WorkoutsPage() {
         ) : (
           <div className="space-y-4">
             {sessions.map((session) => (
-              <div key={session.id} className="rounded-lg border border-slate-200 dark:border-slate-800 p-4">
+              <div key={session.id} className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="font-semibold text-slate-800 dark:text-slate-100">{session.name}</p>
@@ -531,13 +549,13 @@ export default function WorkoutsPage() {
                       <>
                         <button
                           onClick={() => handleSaveSessionEdit(session.id)}
-                          className="text-xs font-medium text-brand-700 dark:text-brand-300 hover:underline"
+                          className="text-xs font-medium text-brand-700 hover:underline dark:text-brand-300"
                         >
                           Guardar
                         </button>
                         <button
                           onClick={cancelEditSession}
-                          className="text-xs font-medium text-slate-500 dark:text-slate-400 hover:underline"
+                          className="text-xs font-medium text-slate-500 hover:underline dark:text-slate-400"
                         >
                           Cancelar
                         </button>
@@ -545,7 +563,7 @@ export default function WorkoutsPage() {
                     ) : (
                       <button
                         onClick={() => startEditSession(session)}
-                        className="text-xs font-medium text-brand-700 dark:text-brand-300 hover:underline"
+                        className="text-xs font-medium text-brand-700 hover:underline dark:text-brand-300"
                       >
                         Editar
                       </button>
@@ -561,14 +579,12 @@ export default function WorkoutsPage() {
 
                 {editingSessionId === session.id ? (
                   <div className="mt-3 space-y-2">
-                    {editingSets.map((set, index) => (
+                    {editingRows.map((row, index) => (
                       <div key={index} className="grid grid-cols-12 items-center gap-2">
                         <select
-                          value={set.exercise_id}
-                          onChange={(e) =>
-                            updateEditingSet(index, { exercise_id: Number(e.target.value) })
-                          }
-                          className="col-span-5 rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1.5 text-sm"
+                          value={row.exercise_id}
+                          onChange={(e) => updateEditingRow(index, { exercise_id: Number(e.target.value) })}
+                          className={`col-span-7 ${smallInputClass}`}
                         >
                           {exercises.map((ex) => (
                             <option key={ex.id} value={ex.id}>
@@ -579,40 +595,15 @@ export default function WorkoutsPage() {
                         <input
                           type="number"
                           min={1}
-                          value={set.reps}
-                          onChange={(e) => updateEditingSet(index, { reps: Number(e.target.value) })}
-                          className="col-span-2 rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1.5 text-sm"
-                          placeholder="Reps"
-                        />
-                        <input
-                          type="number"
-                          min={0}
-                          step={0.5}
-                          value={set.weight_kg}
-                          onChange={(e) =>
-                            updateEditingSet(index, { weight_kg: Number(e.target.value) })
-                          }
-                          className="col-span-2 rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1.5 text-sm"
-                          placeholder="Kg"
-                        />
-                        <input
-                          type="number"
-                          min={0}
-                          max={10}
-                          step={0.5}
-                          value={set.rpe ?? ""}
-                          onChange={(e) =>
-                            updateEditingSet(index, {
-                              rpe: e.target.value ? Number(e.target.value) : null,
-                            })
-                          }
-                          className="col-span-2 rounded-md border border-slate-300 dark:border-slate-700 px-2 py-1.5 text-sm"
-                          placeholder="RPE"
+                          value={row.sets_count}
+                          onChange={(e) => updateEditingRow(index, { sets_count: Number(e.target.value) })}
+                          className={`col-span-3 ${smallInputClass}`}
+                          placeholder="N.º series"
                         />
                         <button
                           type="button"
-                          onClick={() => removeEditingSet(index)}
-                          className="col-span-1 text-xs font-medium text-red-600 hover:underline"
+                          onClick={() => removeEditingRow(index)}
+                          className="col-span-2 text-xs font-medium text-red-600 hover:underline"
                         >
                           Quitar
                         </button>
@@ -620,42 +611,30 @@ export default function WorkoutsPage() {
                     ))}
                     <button
                       type="button"
-                      onClick={addEditingSetRow}
+                      onClick={addEditingRow}
                       disabled={exercises.length === 0}
-                      className="rounded-md bg-slate-100 dark:bg-slate-800 px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-50"
+                      className="rounded-md bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-200 disabled:opacity-50 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
                     >
-                      + Añadir serie
+                      + Añadir ejercicio
                     </button>
                     {sessionEditError && <p className="text-sm text-red-600">{sessionEditError}</p>}
                   </div>
                 ) : (
-                  <table className="mt-3 w-full text-left text-sm">
-                    <thead>
-                      <tr className="text-slate-500 dark:text-slate-400">
-                        <th className="py-1 pr-4">Ejercicio</th>
-                        <th className="py-1 pr-4">Serie</th>
-                        <th className="py-1 pr-4">Reps</th>
-                        <th className="py-1 pr-4">Peso</th>
-                        <th className="py-1 pr-4">RPE</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {session.sets.map((set) => (
-                        <tr key={set.id} className="text-slate-700 dark:text-slate-300">
-                          <td className="py-1 pr-4">
-                            {set.exercise?.name ?? set.exercise_name}
-                            {!set.exercise && (
-                              <span className="ml-1 text-xs text-slate-400 dark:text-slate-500">(eliminado)</span>
-                            )}
-                          </td>
-                          <td className="py-1 pr-4">{set.set_number}</td>
-                          <td className="py-1 pr-4">{set.reps}</td>
-                          <td className="py-1 pr-4">{set.weight_kg} kg</td>
-                          <td className="py-1 pr-4">{set.rpe ?? "—"}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                  <ul className="mt-3 space-y-1 text-sm">
+                    {groupSetsByExercise(session.sets).map((g) => (
+                      <li key={g.key} className="flex items-center justify-between border-b border-slate-100 py-1 last:border-0 dark:border-slate-800">
+                        <span className="text-slate-700 dark:text-slate-300">
+                          {g.name}
+                          {g.deleted && (
+                            <span className="ml-1 text-xs text-slate-400 dark:text-slate-500">(eliminado)</span>
+                          )}
+                        </span>
+                        <span className="text-slate-500 dark:text-slate-400">
+                          {g.count} {g.count === 1 ? "serie" : "series"}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
                 )}
               </div>
             ))}

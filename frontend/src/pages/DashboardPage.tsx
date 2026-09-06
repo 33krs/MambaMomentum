@@ -87,7 +87,7 @@ export default function DashboardPage() {
           </div>
           <TrendBarChart data={trends} />
         </Card>
-        <Card title="Volumen de entrenamiento semanal">
+        <Card title="Series de entrenamiento semanal">
           <WeeklyVolumeChart data={volume} />
         </Card>
       </div>

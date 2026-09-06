@@ -4,23 +4,35 @@ import { useEffect, useState, type FormEvent } from "react";
 import { createFocusSession, deleteFocusSession, listFocusSessions } from "../api/focusSessions";
 import FocusTimer from "../components/FocusTimer";
 import Card from "../components/ui/Card";
-import { CATEGORIES } from "../constants/focusCategories";
+import { useCategories } from "../context/CategoriesContext";
 import type { FocusSession } from "../types";
 
-function toLocalInputValue(date: Date): string {
-  const offset = date.getTimezoneOffset();
-  const local = new Date(date.getTime() - offset * 60_000);
-  return local.toISOString().slice(0, 16);
+const inputClass =
+  "rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100";
+
+function todayInputValue(): string {
+  return new Date().toISOString().slice(0, 10);
 }
 
 export default function FocusSessionsPage() {
+  const { categories, addCategory, renameCategory, removeCategory } = useCategories();
   const [sessions, setSessions] = useState<FocusSession[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [category, setCategory] = useState(CATEGORIES[0]);
-  const [startTime, setStartTime] = useState(toLocalInputValue(new Date(Date.now() - 25 * 60_000)));
-  const [endTime, setEndTime] = useState(toLocalInputValue(new Date()));
+  const [category, setCategory] = useState(categories[0]);
+  const [date, setDate] = useState(todayInputValue());
+  const [minutes, setMinutes] = useState(25);
   const [notes, setNotes] = useState("");
   const [error, setError] = useState<string | null>(null);
+
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [editingCategory, setEditingCategory] = useState<string | null>(null);
+  const [editingCategoryName, setEditingCategoryName] = useState("");
+
+  useEffect(() => {
+    if (!categories.includes(category)) {
+      setCategory(categories[0]);
+    }
+  }, [categories, category]);
 
   function loadSessions() {
     setIsLoading(true);
@@ -34,11 +46,17 @@ export default function FocusSessionsPage() {
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setError(null);
+    if (minutes < 1) {
+      setError("Los minutos deben ser al menos 1");
+      return;
+    }
     try {
+      const start = new Date(`${date}T12:00:00`);
+      const end = new Date(start.getTime() + minutes * 60_000);
       await createFocusSession({
         category,
-        start_time: new Date(startTime).toISOString(),
-        end_time: new Date(endTime).toISOString(),
+        start_time: start.toISOString(),
+        end_time: end.toISOString(),
         notes: notes || undefined,
       });
       setNotes("");
@@ -55,6 +73,24 @@ export default function FocusSessionsPage() {
     loadSessions();
   }
 
+  function handleAddCategory(event: FormEvent) {
+    event.preventDefault();
+    addCategory(newCategoryName);
+    setNewCategoryName("");
+  }
+
+  function startEditCategory(name: string) {
+    setEditingCategory(name);
+    setEditingCategoryName(name);
+  }
+
+  function saveEditCategory() {
+    if (editingCategory) {
+      renameCategory(editingCategory, editingCategoryName);
+    }
+    setEditingCategory(null);
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -66,6 +102,73 @@ export default function FocusSessionsPage() {
         <FocusTimer onLogged={loadSessions} />
       </Card>
 
+      <Card title="Categorías">
+        <form onSubmit={handleAddCategory} className="flex gap-2">
+          <input
+            type="text"
+            value={newCategoryName}
+            onChange={(e) => setNewCategoryName(e.target.value)}
+            placeholder="Nueva categoría"
+            className={`flex-1 ${inputClass}`}
+          />
+          <button
+            type="submit"
+            className="rounded-md bg-slate-100 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+          >
+            Añadir
+          </button>
+        </form>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {categories.map((c) =>
+            editingCategory === c ? (
+              <div key={c} className="flex items-center gap-1 rounded-full bg-brand-50 px-2 py-1 dark:bg-brand-900/30">
+                <input
+                  autoFocus
+                  type="text"
+                  value={editingCategoryName}
+                  onChange={(e) => setEditingCategoryName(e.target.value)}
+                  className="w-32 rounded border border-brand-300 px-1.5 py-0.5 text-xs dark:border-brand-700 dark:bg-slate-800 dark:text-slate-100"
+                />
+                <button
+                  onClick={saveEditCategory}
+                  className="text-xs font-medium text-brand-700 hover:underline dark:text-brand-300"
+                >
+                  Guardar
+                </button>
+                <button
+                  onClick={() => setEditingCategory(null)}
+                  className="text-xs font-medium text-slate-500 hover:underline dark:text-slate-400"
+                >
+                  Cancelar
+                </button>
+              </div>
+            ) : (
+              <span
+                key={c}
+                className="flex items-center gap-1.5 rounded-full bg-brand-50 px-3 py-1 text-xs text-brand-700 dark:bg-brand-900/30 dark:text-brand-300"
+              >
+                {c}
+                <button
+                  onClick={() => startEditCategory(c)}
+                  className="text-brand-500 hover:text-brand-800 dark:text-brand-400"
+                  title="Renombrar"
+                >
+                  ✎
+                </button>
+                <button
+                  onClick={() => removeCategory(c)}
+                  disabled={categories.length <= 1}
+                  className="text-brand-500 hover:text-red-600 disabled:opacity-40 dark:text-brand-400"
+                  title="Eliminar"
+                >
+                  ×
+                </button>
+              </span>
+            ),
+          )}
+        </div>
+      </Card>
+
       <Card title="Nuevo bloque">
         <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div>
@@ -73,9 +176,9 @@ export default function FocusSessionsPage() {
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+              className={`mt-1 w-full ${inputClass}`}
             >
-              {CATEGORIES.map((c) => (
+              {categories.map((c) => (
                 <option key={c} value={c}>
                   {c}
                 </option>
@@ -83,23 +186,24 @@ export default function FocusSessionsPage() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Inicio</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Fecha</label>
             <input
-              type="datetime-local"
+              type="date"
               required
-              value={startTime}
-              onChange={(e) => setStartTime(e.target.value)}
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className={`mt-1 w-full ${inputClass}`}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Fin</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Minutos</label>
             <input
-              type="datetime-local"
+              type="number"
+              min={1}
               required
-              value={endTime}
-              onChange={(e) => setEndTime(e.target.value)}
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+              value={minutes}
+              onChange={(e) => setMinutes(Number(e.target.value))}
+              className={`mt-1 w-full ${inputClass}`}
             />
           </div>
           <div>
@@ -108,7 +212,7 @@ export default function FocusSessionsPage() {
               type="text"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+              className={`mt-1 w-full ${inputClass}`}
               placeholder="Opcional"
             />
           </div>

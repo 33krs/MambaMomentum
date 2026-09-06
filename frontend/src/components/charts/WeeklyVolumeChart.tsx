@@ -27,7 +27,6 @@ export default function WeeklyVolumeChart({ data }: { data: VolumePoint[] }) {
       day: "2-digit",
       month: "2-digit",
     }),
-    volumen: Math.round(point.total_volume_kg),
     series: point.total_sets,
   }));
 
@@ -38,7 +37,7 @@ export default function WeeklyVolumeChart({ data }: { data: VolumePoint[] }) {
         <XAxis dataKey="week" tick={{ fontSize: 12, fill: axisColor }} />
         <YAxis tick={{ fontSize: 12, fill: axisColor }} />
         <Tooltip contentStyle={tooltipStyle} />
-        <Bar dataKey="volumen" fill={barColor} radius={[4, 4, 0, 0]} name="Volumen (kg)" />
+        <Bar dataKey="series" fill={barColor} radius={[4, 4, 0, 0]} name="Series totales" />
       </BarChart>
     </ResponsiveContainer>
   );

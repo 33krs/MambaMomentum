@@ -1,16 +1,21 @@
 import { useEffect, useState } from "react";
 
 import { createFocusSession } from "../api/focusSessions";
-import { CATEGORIES } from "../constants/focusCategories";
+import { useCategories } from "../context/CategoriesContext";
 import { playChime, unlockAudio } from "../utils/chime";
 
 type Mode = "pomodoro" | "stopwatch";
 type Phase = "work" | "break";
 
 const PRESETS = [
+  { label: "15/3", work: 15, break: 3 },
   { label: "25/5", work: 25, break: 5 },
-  { label: "50/10", work: 50, break: 10 },
+  { label: "30/5", work: 30, break: 5 },
   { label: "40/10", work: 40, break: 10 },
+  { label: "45/15", work: 45, break: 15 },
+  { label: "50/10", work: 50, break: 10 },
+  { label: "60/15", work: 60, break: 15 },
+  { label: "90/20", work: 90, break: 20 },
 ];
 
 function formatTime(totalSeconds: number): string {
@@ -20,6 +25,7 @@ function formatTime(totalSeconds: number): string {
 }
 
 export default function FocusTimer({ onLogged }: { onLogged: () => void }) {
+  const { categories } = useCategories();
   const [mode, setMode] = useState<Mode>("pomodoro");
   const [workMinutes, setWorkMinutes] = useState(25);
   const [breakMinutes, setBreakMinutes] = useState(5);
@@ -28,8 +34,15 @@ export default function FocusTimer({ onLogged }: { onLogged: () => void }) {
   const [secondsLeft, setSecondsLeft] = useState(workMinutes * 60);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [phaseStartedAt, setPhaseStartedAt] = useState<Date | null>(null);
-  const [category, setCategory] = useState(CATEGORIES[0]);
+  const [category, setCategory] = useState(categories[0]);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+
+  // Si la categoría seleccionada se renombra o elimina, cae a la primera disponible.
+  useEffect(() => {
+    if (!categories.includes(category)) {
+      setCategory(categories[0]);
+    }
+  }, [categories, category]);
 
   // Mantiene la cuenta regresiva sincronizada con los minutos configurados mientras no corre.
   useEffect(() => {
@@ -209,7 +222,7 @@ export default function FocusTimer({ onLogged }: { onLogged: () => void }) {
           disabled={running}
           className="rounded-md border border-slate-300 px-3 py-2 text-sm disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
         >
-          {CATEGORIES.map((c) => (
+          {categories.map((c) => (
             <option key={c} value={c}>
               {c}
             </option>

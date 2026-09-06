@@ -95,9 +95,7 @@ def test_rename_exercise(client, auth_headers):
 
 
 def test_rename_exercise_conflict(client, auth_headers):
-    client.post(
-        "/api/v1/workouts/exercises", json={"name": "Zancadas"}, headers=auth_headers
-    )
+    client.post("/api/v1/workouts/exercises", json={"name": "Zancadas"}, headers=auth_headers)
     other = client.post(
         "/api/v1/workouts/exercises", json={"name": "Prensa"}, headers=auth_headers
     ).json()
@@ -114,9 +112,7 @@ def test_delete_unused_exercise(client, auth_headers):
     exercise = client.post(
         "/api/v1/workouts/exercises", json={"name": "Elevaciones"}, headers=auth_headers
     ).json()
-    response = client.delete(
-        f"/api/v1/workouts/exercises/{exercise['id']}", headers=auth_headers
-    )
+    response = client.delete(f"/api/v1/workouts/exercises/{exercise['id']}", headers=auth_headers)
     assert response.status_code == 204
 
 
