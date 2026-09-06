@@ -8,7 +8,7 @@ from app.db.base_class import Base
 
 if TYPE_CHECKING:
     from app.models.focus_session import FocusSession
-    from app.models.workout import WorkoutSession
+    from app.models.workout import WorkoutSession, WorkoutTemplate
 
 
 class User(Base):
@@ -25,5 +25,8 @@ class User(Base):
         back_populates="owner", cascade="all, delete-orphan"
     )
     workout_sessions: Mapped[list["WorkoutSession"]] = relationship(
+        back_populates="owner", cascade="all, delete-orphan"
+    )
+    workout_templates: Mapped[list["WorkoutTemplate"]] = relationship(
         back_populates="owner", cascade="all, delete-orphan"
     )

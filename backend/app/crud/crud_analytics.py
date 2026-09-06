@@ -19,7 +19,21 @@ def focus_heatmap(db: Session, user_id: int, days: int = 365) -> list[HeatmapPoi
         .order_by(day_col)
         .all()
     )
-    return [HeatmapPoint(date=row.day, value=float(row.minutes or 0)) for row in rows]
+    minutes_by_day = {row.day: float(row.minutes or 0) for row in rows}
+
+    workout_days = {
+        row[0]
+        for row in db.query(WorkoutSession.date)
+        .filter(WorkoutSession.user_id == user_id, WorkoutSession.date >= since)
+        .distinct()
+        .all()
+    }
+
+    all_days = set(minutes_by_day) | workout_days
+    return [
+        HeatmapPoint(date=day, value=minutes_by_day.get(day, 0.0), trained=day in workout_days)
+        for day in sorted(all_days)
+    ]
 
 
 def focus_trends(db: Session, user_id: int, weeks: int = 12) -> list[TrendPoint]:
@@ -38,7 +52,10 @@ def focus_trends(db: Session, user_id: int, weeks: int = 12) -> list[TrendPoint]
     )
     return [
         TrendPoint(
-            period_start=row.week, total_minutes=int(row.minutes or 0), session_count=row.count
+            period_start=row.week,
+            total_minutes=int(row.minutes or 0),
+            session_count=row.count,
+            avg_session_minutes=(row.minutes or 0) / row.count if row.count else 0.0,
         )
         for row in rows
     ]

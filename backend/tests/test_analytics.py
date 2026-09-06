@@ -59,6 +59,30 @@ def test_focus_heatmap_returns_daily_totals(client, auth_headers):
     assert any(point["value"] >= 60 for point in points)
 
 
+def test_focus_heatmap_flags_trained_days(client, auth_headers):
+    now = datetime.now(timezone.utc)
+    exercise = client.post(
+        "/api/v1/workouts/exercises",
+        json={"name": "Peso Muerto Rumano"},
+        headers=auth_headers,
+    ).json()
+    client.post(
+        "/api/v1/workouts/",
+        json={
+            "name": "Piernas",
+            "date": now.date().isoformat(),
+            "sets": [{"exercise_id": exercise["id"], "reps": 10, "weight_kg": 50}],
+        },
+        headers=auth_headers,
+    )
+
+    response = client.get("/api/v1/analytics/focus/heatmap?days=30", headers=auth_headers)
+    assert response.status_code == 200
+    points = {point["date"]: point for point in response.json()}
+    today_key = now.date().isoformat()
+    assert points[today_key]["trained"] is True
+
+
 def test_workout_volume_requires_auth(client):
     response = client.get("/api/v1/analytics/workouts/volume")
     assert response.status_code == 401

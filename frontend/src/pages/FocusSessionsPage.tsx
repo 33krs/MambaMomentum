@@ -2,10 +2,10 @@ import axios from "axios";
 import { useEffect, useState, type FormEvent } from "react";
 
 import { createFocusSession, deleteFocusSession, listFocusSessions } from "../api/focusSessions";
+import FocusTimer from "../components/FocusTimer";
 import Card from "../components/ui/Card";
+import { CATEGORIES } from "../constants/focusCategories";
 import type { FocusSession } from "../types";
-
-const CATEGORIES = ["Trabajo", "Estudio", "Proyecto Personal", "Lectura", "General"];
 
 function toLocalInputValue(date: Date): string {
   const offset = date.getTimezoneOffset();
@@ -58,18 +58,22 @@ export default function FocusSessionsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Bloques de concentración</h1>
-        <p className="text-sm text-slate-500">Registra tus sesiones de trabajo profundo</p>
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Bloques de concentración</h1>
+        <p className="text-sm text-slate-500 dark:text-slate-400">Registra tus sesiones de trabajo profundo</p>
       </div>
+
+      <Card title="Temporizador">
+        <FocusTimer onLogged={loadSessions} />
+      </Card>
 
       <Card title="Nuevo bloque">
         <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700">Categoría</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Categoría</label>
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
             >
               {CATEGORIES.map((c) => (
                 <option key={c} value={c}>
@@ -79,32 +83,32 @@ export default function FocusSessionsPage() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700">Inicio</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Inicio</label>
             <input
               type="datetime-local"
               required
               value={startTime}
               onChange={(e) => setStartTime(e.target.value)}
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700">Fin</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Fin</label>
             <input
               type="datetime-local"
               required
               value={endTime}
               onChange={(e) => setEndTime(e.target.value)}
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700">Notas</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Notas</label>
             <input
               type="text"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
               placeholder="Opcional"
             />
           </div>
@@ -122,14 +126,14 @@ export default function FocusSessionsPage() {
 
       <Card title="Historial">
         {isLoading ? (
-          <p className="text-slate-500">Cargando…</p>
+          <p className="text-slate-500 dark:text-slate-400">Cargando…</p>
         ) : sessions.length === 0 ? (
-          <p className="text-slate-500">Aún no has registrado bloques de concentración.</p>
+          <p className="text-slate-500 dark:text-slate-400">Aún no has registrado bloques de concentración.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
-                <tr className="border-b border-slate-200 text-slate-500">
+                <tr className="border-b border-slate-200 text-slate-500 dark:border-slate-800 dark:text-slate-400">
                   <th className="py-2 pr-4">Categoría</th>
                   <th className="py-2 pr-4">Inicio</th>
                   <th className="py-2 pr-4">Fin</th>
@@ -140,16 +144,16 @@ export default function FocusSessionsPage() {
               </thead>
               <tbody>
                 {sessions.map((session) => (
-                  <tr key={session.id} className="border-b border-slate-100">
-                    <td className="py-2 pr-4 font-medium text-slate-800">{session.category}</td>
-                    <td className="py-2 pr-4 text-slate-600">
+                  <tr key={session.id} className="border-b border-slate-100 dark:border-slate-800">
+                    <td className="py-2 pr-4 font-medium text-slate-800 dark:text-slate-100">{session.category}</td>
+                    <td className="py-2 pr-4 text-slate-600 dark:text-slate-300">
                       {new Date(session.start_time).toLocaleString("es-ES")}
                     </td>
-                    <td className="py-2 pr-4 text-slate-600">
+                    <td className="py-2 pr-4 text-slate-600 dark:text-slate-300">
                       {new Date(session.end_time).toLocaleString("es-ES")}
                     </td>
-                    <td className="py-2 pr-4 text-slate-600">{session.duration_minutes} min</td>
-                    <td className="py-2 pr-4 text-slate-500">{session.notes || "—"}</td>
+                    <td className="py-2 pr-4 text-slate-600 dark:text-slate-300">{session.duration_minutes} min</td>
+                    <td className="py-2 pr-4 text-slate-500 dark:text-slate-400">{session.notes || "—"}</td>
                     <td className="py-2 pr-4 text-right">
                       <button
                         onClick={() => handleDelete(session.id)}

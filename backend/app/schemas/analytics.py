@@ -6,12 +6,14 @@ from pydantic import BaseModel
 class HeatmapPoint(BaseModel):
     date: date
     value: float
+    trained: bool = False
 
 
 class TrendPoint(BaseModel):
     period_start: date
     total_minutes: int
     session_count: int
+    avg_session_minutes: float
 
 
 class VolumePoint(BaseModel):

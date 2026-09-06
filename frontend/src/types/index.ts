@@ -30,15 +30,21 @@ export interface Exercise {
   muscle_group: string | null;
 }
 
+export interface ExerciseInput {
+  name?: string;
+  muscle_group?: string | null;
+}
+
 export interface WorkoutSet {
   id: number;
   workout_session_id: number;
-  exercise_id: number;
+  exercise_id: number | null;
+  exercise_name: string;
   set_number: number;
   reps: number;
   weight_kg: number;
   rpe: number | null;
-  exercise: Exercise;
+  exercise: Exercise | null;
 }
 
 export interface WorkoutSetInput {
@@ -66,15 +72,52 @@ export interface WorkoutSessionInput {
   sets: WorkoutSetInput[];
 }
 
+export interface WorkoutSessionUpdateInput {
+  name?: string;
+  date?: string;
+  notes?: string;
+  sets?: WorkoutSetInput[];
+}
+
+export interface WorkoutTemplateExercise {
+  id: number;
+  template_id: number;
+  exercise_id: number;
+  sets_count: number;
+  order_index: number;
+  exercise: Exercise;
+}
+
+export interface WorkoutTemplateExerciseInput {
+  exercise_id: number;
+  sets_count: number;
+  order_index: number;
+}
+
+export interface WorkoutTemplate {
+  id: number;
+  user_id: number;
+  name: string;
+  created_at: string;
+  items: WorkoutTemplateExercise[];
+}
+
+export interface WorkoutTemplateInput {
+  name: string;
+  items: WorkoutTemplateExerciseInput[];
+}
+
 export interface HeatmapPoint {
   date: string;
   value: number;
+  trained: boolean;
 }
 
 export interface TrendPoint {
   period_start: string;
   total_minutes: number;
   session_count: number;
+  avg_session_minutes: number;
 }
 
 export interface VolumePoint {
