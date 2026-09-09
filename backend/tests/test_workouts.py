@@ -57,7 +57,9 @@ def test_exercise_catalog_lists_system_and_current_users_exercises_only(client, 
     assert other_exercise["id"] not in exercises
 
 
-def test_retired_system_exercise_is_hidden_from_catalog_but_remains_usable(client, auth_headers, db):
+def test_retired_system_exercise_is_hidden_from_catalog_but_remains_usable(
+    client, auth_headers, db
+):
     retired = Exercise(name="Press Banca Smoke2", catalog_visible=False)
     db.add(retired)
     db.commit()
@@ -518,7 +520,10 @@ def test_update_workout_template_persists_owner_draft_without_recreating(client,
 
     response = client.put(
         f"/api/v1/workouts/templates/{template['id']}",
-        json={"name": "Updated", "items": [{"exercise_id": second["id"], "sets_count": 3, "order_index": 0}]},
+        json={
+            "name": "Updated",
+            "items": [{"exercise_id": second["id"], "sets_count": 3, "order_index": 0}],
+        },
         headers=auth_headers,
     )
 
