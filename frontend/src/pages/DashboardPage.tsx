@@ -32,62 +32,54 @@ export default function DashboardPage() {
     fetchFocusTrends(trendWeeks).then(setTrends);
   }, [trendWeeks]);
 
-  if (isLoading) {
-    return <p className="text-slate-500">Cargando panel…</p>;
-  }
+  if (isLoading) return <p className="text-slate-500">Cargando panel…</p>;
+
+  const focusMinutes = summary?.focus_minutes_last_7_days ?? 0;
+  const workouts = summary?.workout_sessions_last_7_days ?? 0;
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Panel de control</h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400">
-          Resumen de tu productividad y actividad física de los últimos 7 días
-        </p>
-      </div>
+    <div className="space-y-6 pb-8">
+      <header className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-brand-600 via-brand-700 to-slate-900 px-6 py-8 text-white shadow-xl sm:px-8">
+        <div className="absolute -right-10 -top-16 h-52 w-52 rounded-full bg-white/10 blur-2xl" aria-hidden="true" />
+        <div className="relative max-w-2xl">
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-brand-100">Tu semana en perspectiva</p>
+          <h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">Panel de control</h1>
+          <p className="mt-3 text-sm leading-6 text-brand-100">Un vistazo claro a tu concentración y entrenamiento de los últimos 7 días.</p>
+          <div className="mt-5 flex flex-wrap gap-3 text-sm">
+            <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1.5 font-semibold">{focusMinutes} min de foco</span>
+            <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1.5 font-semibold">{workouts} entrenamientos</span>
+          </div>
+        </div>
+      </header>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          label="Minutos de concentración"
-          value={String(summary?.focus_minutes_last_7_days ?? 0)}
-        />
-        <StatCard
-          label="Bloques de concentración"
-          value={String(summary?.focus_sessions_last_7_days ?? 0)}
-        />
-        <StatCard
-          label="Entrenamientos"
-          value={String(summary?.workout_sessions_last_7_days ?? 0)}
-        />
-        <StatCard
-          label="Racha actual"
-          value={`${summary?.current_focus_streak_days ?? 0} días`}
-        />
+        <StatCard label="Minutos de concentración" value={String(focusMinutes)} hint="Últimos 7 días" />
+        <StatCard label="Bloques de concentración" value={String(summary?.focus_sessions_last_7_days ?? 0)} hint="Sesiones registradas" />
+        <StatCard label="Entrenamientos" value={String(workouts)} hint="Últimos 7 días" />
+        <StatCard label="Racha actual" value={`${summary?.current_focus_streak_days ?? 0} días`} hint="Días consecutivos" />
       </div>
 
-      <Card title="Mapa de calor de concentración">
+      <Card title="Mapa de calor de concentración" className="overflow-hidden">
+        <p className="-mt-2 mb-5 text-sm text-slate-500 dark:text-slate-400">Cada bloque muestra cómo se distribuyó tu trabajo profundo.</p>
         <HeatmapCalendar points={heatmap} weeksToShow={26} />
       </Card>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card title="Tendencia semanal de concentración">
-          <div className="mb-3 flex gap-2">
-            {TREND_PERIODS.map((weeks) => (
-              <button
-                key={weeks}
-                onClick={() => setTrendWeeks(weeks)}
-                className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
-                  trendWeeks === weeks
-                    ? "bg-brand-50 text-brand-700 dark:bg-brand-900/40 dark:text-brand-300"
-                    : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
-                }`}
-              >
-                {weeks} semanas
-              </button>
-            ))}
+          <div className="mb-5 flex items-center justify-between gap-3">
+            <p className="text-sm text-slate-500 dark:text-slate-400">Evolución por semana</p>
+            <div className="flex rounded-xl bg-slate-100 p-1 dark:bg-slate-800" aria-label="Período de tendencia">
+              {TREND_PERIODS.map((weeks) => (
+                <button key={weeks} type="button" onClick={() => setTrendWeeks(weeks)} className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${trendWeeks === weeks ? "bg-white text-brand-700 shadow-sm dark:bg-slate-700 dark:text-brand-300" : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"}`}>
+                  {weeks} sem.
+                </button>
+              ))}
+            </div>
           </div>
           <TrendBarChart data={trends} />
         </Card>
         <Card title="Series de entrenamiento semanal">
+          <p className="-mt-2 mb-5 text-sm text-slate-500 dark:text-slate-400">Volumen registrado en tus rutinas.</p>
           <WeeklyVolumeChart data={volume} />
         </Card>
       </div>
