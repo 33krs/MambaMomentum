@@ -6,6 +6,10 @@ from app.models.focus_session import FocusSession
 from app.schemas.focus_session import FocusSessionCreate, FocusSessionUpdate
 
 
+class InvalidFocusSessionRange(ValueError):
+    pass
+
+
 def create_focus_session(db: Session, user_id: int, session_in: FocusSessionCreate) -> FocusSession:
     duration = int((session_in.end_time - session_in.start_time).total_seconds() // 60)
     session = FocusSession(
@@ -50,9 +54,13 @@ def update_focus_session(
     db: Session, session: FocusSession, session_in: FocusSessionUpdate
 ) -> FocusSession:
     data = session_in.model_dump(exclude_unset=True)
+    start_time = data.get("start_time", session.start_time)
+    end_time = data.get("end_time", session.end_time)
+    if end_time <= start_time:
+        raise InvalidFocusSessionRange("end_time must be after start_time")
     for field, value in data.items():
         setattr(session, field, value)
-    session.duration_minutes = int((session.end_time - session.start_time).total_seconds() // 60)
+    session.duration_minutes = int((end_time - start_time).total_seconds() // 60)
     db.add(session)
     db.commit()
     db.refresh(session)

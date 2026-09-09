@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
 
 class FocusSessionBase(BaseModel):
@@ -8,6 +8,13 @@ class FocusSessionBase(BaseModel):
     start_time: datetime
     end_time: datetime
     notes: str | None = None
+
+    @field_validator("start_time", "end_time")
+    @classmethod
+    def times_must_include_timezone(cls, value: datetime) -> datetime:
+        if value.utcoffset() is None:
+            raise ValueError("time values must include a timezone")
+        return value
 
     @model_validator(mode="after")
     def check_time_range(self) -> "FocusSessionBase":
@@ -25,6 +32,15 @@ class FocusSessionUpdate(BaseModel):
     start_time: datetime | None = None
     end_time: datetime | None = None
     notes: str | None = None
+
+    @field_validator("start_time", "end_time")
+    @classmethod
+    def times_must_include_timezone(cls, value: datetime | None) -> datetime:
+        if value is None:
+            raise ValueError("time values cannot be null")
+        if value.utcoffset() is None:
+            raise ValueError("time values must include a timezone")
+        return value
 
 
 class FocusSessionRead(FocusSessionBase):

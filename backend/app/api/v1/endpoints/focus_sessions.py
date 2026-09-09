@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_active_user, get_db
 from app.crud.crud_focus_session import (
+    InvalidFocusSessionRange,
     create_focus_session,
     delete_focus_session,
     get_focus_session,
@@ -60,7 +61,13 @@ def update_session(
     session = get_focus_session(db, session_id, current_user.id)
     if not session:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sesión no encontrada")
-    return update_focus_session(db, session, session_in)
+    try:
+        return update_focus_session(db, session, session_in)
+    except InvalidFocusSessionRange as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="end_time debe ser posterior a start_time",
+        ) from exc
 
 
 @router.delete("/{session_id}", status_code=status.HTTP_204_NO_CONTENT)

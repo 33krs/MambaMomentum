@@ -3,6 +3,8 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
     Date,
     DateTime,
     Float,
@@ -10,7 +12,7 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
-    UniqueConstraint,
+    Index,
     func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -22,16 +24,39 @@ if TYPE_CHECKING:
 
 
 class Exercise(Base):
-    """Catálogo de ejercicios de fuerza disponibles para todos los usuarios."""
+    """A shared system exercise or a private user-owned exercise."""
 
     __tablename__ = "exercises"
-    __table_args__ = (UniqueConstraint("name", name="uq_exercise_name"),)
-
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     name: Mapped[str] = mapped_column(String(150), nullable=False, index=True)
     muscle_group: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    owner_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    catalog_visible: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+    __table_args__ = (
+        CheckConstraint("name ~ '[^[:space:]]'", name="ck_exercises_name_not_blank"),
+        Index(
+            "uq_exercises_system_name_ci",
+            func.lower(name),
+            unique=True,
+            postgresql_where=owner_id.is_(None),
+        ),
+        Index(
+            "uq_exercises_owner_name_ci",
+            owner_id,
+            func.lower(name),
+            unique=True,
+            postgresql_where=owner_id.is_not(None),
+        ),
+    )
 
     sets: Mapped[list["WorkoutSet"]] = relationship(back_populates="exercise")
+
+    @property
+    def is_system(self) -> bool:
+        return self.owner_id is None
 
 
 class WorkoutSession(Base):
@@ -112,10 +137,13 @@ class WorkoutTemplateExercise(Base):
     template_id: Mapped[int] = mapped_column(
         ForeignKey("workout_templates.id", ondelete="CASCADE"), index=True
     )
-    exercise_id: Mapped[int] = mapped_column(ForeignKey("exercises.id"), index=True)
+    exercise_id: Mapped[int | None] = mapped_column(
+        ForeignKey("exercises.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    exercise_name: Mapped[str] = mapped_column(String(150), nullable=False)
 
     sets_count: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     order_index: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     template: Mapped["WorkoutTemplate"] = relationship(back_populates="items")
-    exercise: Mapped["Exercise"] = relationship()
+    exercise: Mapped["Exercise | None"] = relationship()
