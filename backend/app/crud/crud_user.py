@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 
 from app.core.security import get_password_hash, verify_password
+from app.crud.crud_kanban import get_or_create_board
 from app.models.user import User
 from app.schemas.user import UserCreate
 
@@ -22,6 +23,7 @@ def create_user(db: Session, user_in: UserCreate) -> User:
     db.add(user)
     db.commit()
     db.refresh(user)
+    get_or_create_board(db, user.id)
     return user
 
 

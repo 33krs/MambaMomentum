@@ -5,13 +5,14 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_active_user, get_db
 from app.crud.crud_workout import (
+    ExerciseNameTaken,
+    ExerciseNotFound,
     apply_workout_template,
     create_workout_session,
     create_workout_template,
     delete_exercise,
     delete_workout_session,
     delete_workout_template,
-    get_exercise,
     get_or_create_exercise,
     get_workout_session,
     get_workout_template,
@@ -19,6 +20,7 @@ from app.crud.crud_workout import (
     list_workout_sessions,
     list_workout_templates,
     update_exercise,
+    update_workout_template,
     update_workout_session,
 )
 from app.models.user import User
@@ -32,14 +34,18 @@ from app.schemas.workout import (
     WorkoutTemplateApply,
     WorkoutTemplateCreate,
     WorkoutTemplateRead,
+    WorkoutTemplateUpdate,
 )
 
 router = APIRouter()
 
 
 @router.get("/exercises", response_model=list[ExerciseRead])
-def read_exercises(db: Session = Depends(get_db)):
-    return list_exercises(db)
+def read_exercises(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    return list_exercises(db, current_user.id)
 
 
 @router.post("/exercises", response_model=ExerciseRead, status_code=status.HTTP_201_CREATED)
@@ -48,7 +54,13 @@ def create_exercise(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
-    return get_or_create_exercise(db, exercise_in)
+    try:
+        return get_or_create_exercise(db, current_user.id, exercise_in)
+    except ExerciseNameTaken as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Ya existe un ejercicio visible con ese nombre",
+        ) from exc
 
 
 @router.put("/exercises/{exercise_id}", response_model=ExerciseRead)
@@ -58,15 +70,16 @@ def rename_exercise(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
-    exercise = get_exercise(db, exercise_id)
-    if not exercise:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ejercicio no encontrado")
     try:
-        return update_exercise(db, exercise, exercise_in)
-    except ValueError:
+        return update_exercise(db, exercise_id, current_user.id, exercise_in)
+    except ExerciseNotFound as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Ejercicio no encontrado"
+        ) from exc
+    except ExerciseNameTaken as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail="Ya existe un ejercicio con ese nombre"
-        )
+        ) from exc
 
 
 @router.delete("/exercises/{exercise_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -75,10 +88,12 @@ def remove_exercise(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
-    exercise = get_exercise(db, exercise_id)
-    if not exercise:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ejercicio no encontrado")
-    delete_exercise(db, exercise)
+    try:
+        delete_exercise(db, exercise_id, current_user.id)
+    except ExerciseNotFound as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Ejercicio no encontrado"
+        ) from exc
 
 
 @router.post("/templates", response_model=WorkoutTemplateRead, status_code=status.HTTP_201_CREATED)
@@ -87,7 +102,30 @@ def create_template(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
-    return create_workout_template(db, current_user.id, template_in)
+    try:
+        return create_workout_template(db, current_user.id, template_in)
+    except ExerciseNotFound as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Ejercicio no encontrado"
+        ) from exc
+
+
+@router.put("/templates/{template_id}", response_model=WorkoutTemplateRead)
+def update_template(
+    template_id: int,
+    template_in: WorkoutTemplateUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    template = get_workout_template(db, template_id, current_user.id)
+    if not template:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plantilla no encontrada")
+    try:
+        return update_workout_template(db, template, current_user.id, template_in)
+    except ExerciseNotFound as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Ejercicio no encontrado"
+        ) from exc
 
 
 @router.get("/templates", response_model=list[WorkoutTemplateRead])
@@ -133,7 +171,12 @@ def create_session(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
-    return create_workout_session(db, current_user.id, session_in)
+    try:
+        return create_workout_session(db, current_user.id, session_in)
+    except ExerciseNotFound as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Ejercicio no encontrado"
+        ) from exc
 
 
 @router.get("/", response_model=list[WorkoutSessionRead])
@@ -174,7 +217,12 @@ def update_session(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Entrenamiento no encontrado"
         )
-    return update_workout_session(db, session, session_in)
+    try:
+        return update_workout_session(db, session, session_in)
+    except ExerciseNotFound as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Ejercicio no encontrado"
+        ) from exc
 
 
 @router.delete("/{session_id}", status_code=status.HTTP_204_NO_CONTENT)

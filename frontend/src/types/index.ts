@@ -28,6 +28,7 @@ export interface Exercise {
   id: number;
   name: string;
   muscle_group: string | null;
+  is_system: boolean;
 }
 
 export interface ExerciseInput {
@@ -82,10 +83,11 @@ export interface WorkoutSessionUpdateInput {
 export interface WorkoutTemplateExercise {
   id: number;
   template_id: number;
-  exercise_id: number;
+  exercise_id: number | null;
+  exercise_name: string;
   sets_count: number;
   order_index: number;
-  exercise: Exercise;
+  exercise: Exercise | null;
 }
 
 export interface WorkoutTemplateExerciseInput {

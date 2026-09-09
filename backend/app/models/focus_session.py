@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base_class import Base
@@ -14,6 +14,9 @@ class FocusSession(Base):
     """Bloque de concentración / trabajo profundo registrado por el usuario."""
 
     __tablename__ = "focus_sessions"
+    __table_args__ = (
+        CheckConstraint("end_time > start_time", name="ck_focus_sessions_valid_time_range"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)

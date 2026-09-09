@@ -26,3 +26,4 @@ postgres_data/
 .idea/
 .DS_Store
 Thumbs.db
+README.private.md

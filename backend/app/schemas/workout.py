@@ -1,12 +1,14 @@
 from datetime import date as date_type
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class ExerciseBase(BaseModel):
-    name: str
-    muscle_group: str | None = None
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    name: str = Field(min_length=1, max_length=150)
+    muscle_group: str | None = Field(default=None, max_length=100)
 
 
 class ExerciseCreate(ExerciseBase):
@@ -14,14 +16,24 @@ class ExerciseCreate(ExerciseBase):
 
 
 class ExerciseUpdate(BaseModel):
-    name: str | None = None
-    muscle_group: str | None = None
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    name: str | None = Field(default=None, min_length=1, max_length=150)
+    muscle_group: str | None = Field(default=None, max_length=100)
+
+    @field_validator("name")
+    @classmethod
+    def name_cannot_be_null(cls, value: str | None) -> str:
+        if value is None:
+            raise ValueError("name cannot be null")
+        return value
 
 
 class ExerciseRead(ExerciseBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    is_system: bool
 
 
 class WorkoutSetBase(BaseModel):
@@ -91,10 +103,11 @@ class WorkoutTemplateExerciseRead(BaseModel):
 
     id: int
     template_id: int
-    exercise_id: int
+    exercise_id: int | None
+    exercise_name: str
     sets_count: int
     order_index: int
-    exercise: ExerciseRead
+    exercise: ExerciseRead | None
 
 
 class WorkoutTemplateBase(BaseModel):
@@ -102,6 +115,10 @@ class WorkoutTemplateBase(BaseModel):
 
 
 class WorkoutTemplateCreate(WorkoutTemplateBase):
+    items: list[WorkoutTemplateExerciseCreate] = Field(default_factory=list)
+
+
+class WorkoutTemplateUpdate(WorkoutTemplateBase):
     items: list[WorkoutTemplateExerciseCreate] = Field(default_factory=list)
 
 

@@ -63,6 +63,14 @@ export async function createWorkoutTemplate(input: WorkoutTemplateInput): Promis
   return data;
 }
 
+export async function updateWorkoutTemplate(
+  id: number,
+  patch: WorkoutTemplateInput,
+): Promise<WorkoutTemplate> {
+  const { data } = await apiClient.put<WorkoutTemplate>(`/workouts/templates/${id}`, patch);
+  return data;
+}
+
 export async function deleteWorkoutTemplate(id: number): Promise<void> {
   await apiClient.delete(`/workouts/templates/${id}`);
 }
