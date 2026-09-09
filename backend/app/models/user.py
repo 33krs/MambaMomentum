@@ -8,6 +8,7 @@ from app.db.base_class import Base
 
 if TYPE_CHECKING:
     from app.models.focus_session import FocusSession
+    from app.models.kanban import KanbanBoard
     from app.models.workout import WorkoutSession, WorkoutTemplate
 
 
@@ -29,4 +30,7 @@ class User(Base):
     )
     workout_templates: Mapped[list["WorkoutTemplate"]] = relationship(
         back_populates="owner", cascade="all, delete-orphan"
+    )
+    kanban_board: Mapped["KanbanBoard | None"] = relationship(
+        back_populates="owner", cascade="all, delete-orphan", uselist=False
     )
