@@ -27,3 +27,10 @@ postgres_data/
 .DS_Store
 Thumbs.db
 README.private.md
+
+# Agent tooling
+.atl/
+
+# Local planning artifacts
+plan-integracion-features.md
+openspec/
