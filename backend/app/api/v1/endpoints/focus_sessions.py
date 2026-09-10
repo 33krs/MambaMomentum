@@ -65,7 +65,7 @@ def update_session(
         return update_focus_session(db, session, session_in)
     except InvalidFocusSessionRange as exc:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="end_time debe ser posterior a start_time",
         ) from exc
 
