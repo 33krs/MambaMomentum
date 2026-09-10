@@ -21,9 +21,10 @@ def create_user(db: Session, user_in: UserCreate) -> User:
         hashed_password=get_password_hash(user_in.password),
     )
     db.add(user)
+    db.flush()
+    get_or_create_board(db, user.id)
     db.commit()
     db.refresh(user)
-    get_or_create_board(db, user.id)
     return user
 
 
