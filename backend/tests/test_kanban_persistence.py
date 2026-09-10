@@ -1,7 +1,13 @@
 import pytest
 from sqlalchemy.exc import IntegrityError
 
-from app.crud.crud_kanban import create_task, get_or_create_board, get_task
+from app.crud.crud_kanban import (
+    create_task,
+    delete_task,
+    get_or_create_board,
+    get_task,
+    list_column_tasks,
+)
 from app.crud.crud_user import create_user as register_user
 from app.models.kanban import KANBAN_COLUMNS, KanbanBoard, KanbanColumn, KanbanTask
 from app.models.user import User
@@ -146,15 +152,38 @@ def test_task_crud_scopes_resources_to_the_board_owner(db):
     )
 
 
+def test_task_crud_flushes_without_committing_and_keeps_contiguous_positions(db, monkeypatch):
+    user = create_user(db, "flush-only@example.com")
+    board = get_or_create_board(db, user.id)
+    column = board.columns[0]
+
+    def commit_must_not_be_called():
+        pytest.fail("Kanban CRUD writes must leave transaction ownership to the service")
+
+    monkeypatch.setattr(db, "commit", commit_must_not_be_called)
+    first = create_task(db, user.id, column.id, "First", "#123456", 0)
+    second = create_task(db, user.id, column.id, "Second", "#abcdef", 1)
+
+    assert first is not None
+    assert second is not None
+    assert [task.position for task in list_column_tasks(db, board.id, column.id)] == [0, 1]
+
+    delete_task(db, second)
+
+    assert [task.position for task in list_column_tasks(db, board.id, column.id)] == [0]
+    db.rollback()
+
+
 def test_deleting_a_user_cascades_its_board_columns_and_tasks(db):
     user = create_user(db, "cascade@example.com")
     board = get_or_create_board(db, user.id)
     task = create_task(db, user.id, board.columns[0].id, "Task", "#112233", 0)
     assert task is not None
+    task_id = task.id
 
     db.delete(user)
     db.commit()
 
     assert db.query(KanbanBoard).filter(KanbanBoard.id == board.id).one_or_none() is None
     assert db.query(KanbanColumn).filter(KanbanColumn.board_id == board.id).count() == 0
-    assert db.query(KanbanTask).filter(KanbanTask.id == task.id).one_or_none() is None
+    assert db.query(KanbanTask).filter(KanbanTask.id == task_id).one_or_none() is None
