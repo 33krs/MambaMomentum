@@ -7,6 +7,7 @@ import { CategoriesProvider } from "./context/CategoriesContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import DashboardPage from "./pages/DashboardPage";
 import FocusSessionsPage from "./pages/FocusSessionsPage";
+import KanbanPage from "./pages/KanbanPage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import WorkoutsPage from "./pages/WorkoutsPage";
@@ -45,6 +46,16 @@ export default function App() {
                 <ProtectedRoute>
                   <Layout>
                     <WorkoutsPage />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/kanban"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <KanbanPage />
                   </Layout>
                 </ProtectedRoute>
               }
