@@ -135,3 +135,46 @@ export interface DashboardSummary {
   workout_volume_last_7_days_kg: number;
   current_focus_streak_days: number;
 }
+
+export interface KanbanTask {
+  id: number;
+  column_id: number;
+  title: string;
+  description: string | null;
+  background_color: string;
+  position: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface KanbanColumn {
+  id: number;
+  key: string;
+  name: string;
+  position: number;
+  tasks: KanbanTask[];
+}
+
+export interface KanbanBoard {
+  id: number;
+  columns: KanbanColumn[];
+}
+
+export interface KanbanTaskInput {
+  column_id: number;
+  position: number;
+  title: string;
+  description?: string | null;
+  background_color: string;
+}
+
+export interface KanbanTaskUpdateInput {
+  title?: string;
+  description?: string | null;
+  background_color?: string;
+}
+
+export interface KanbanTaskMoveInput {
+  column_id: number;
+  position: number;
+}
