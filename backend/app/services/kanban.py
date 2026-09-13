@@ -10,6 +10,7 @@ from app.crud.crud_kanban import (
     get_board,
     get_column,
     get_locked_board,
+    get_or_create_board,
     get_task,
     list_column_tasks,
     update_task,
@@ -35,7 +36,9 @@ class KanbanService:
     def read_board(self, user_id: int) -> KanbanBoard:
         board = get_board(self.db, user_id)
         if board is None:
-            raise KanbanNotFoundError
+            get_or_create_board(self.db, user_id)
+            self.db.commit()
+            board = get_board(self.db, user_id)
         return board
 
     def read_task(self, user_id: int, task_id: int) -> KanbanTask:

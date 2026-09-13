@@ -5,6 +5,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.core.security import create_access_token
 from app.crud.crud_kanban import get_or_create_board, list_column_tasks
+from app.models.kanban import KanbanBoard
 from app.models.user import User
 from app.schemas.kanban import KanbanTaskCreate, KanbanTaskMove
 from app.services.kanban import KanbanService
@@ -36,6 +37,24 @@ def _tasks(board, column_id):
 
 
 def test_authenticated_user_reads_its_initialized_board(client, auth_headers):
+    board = _board(client, auth_headers)
+
+    assert [column["key"] for column in board["columns"]] == [
+        "pending",
+        "next",
+        "in_progress",
+        "testing",
+        "done",
+    ]
+    assert all(column["tasks"] == [] for column in board["columns"])
+
+
+def test_reading_the_board_lazily_creates_it_for_accounts_predating_the_feature(
+    client, auth_headers, db
+):
+    db.query(KanbanBoard).delete()
+    db.commit()
+
     board = _board(client, auth_headers)
 
     assert [column["key"] for column in board["columns"]] == [
