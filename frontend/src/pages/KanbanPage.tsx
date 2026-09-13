@@ -77,6 +77,9 @@ interface MoveTargetColumn {
   taskCount: number;
 }
 
+const MOVE_DIRECTIONS = ["prev", "up", "down", "next"] as const;
+type MoveDirection = (typeof MOVE_DIRECTIONS)[number];
+
 interface TaskCardProps {
   task: KanbanTask;
   taskIndex: number;
@@ -84,8 +87,8 @@ interface TaskCardProps {
   allColumns: MoveTargetColumn[];
   onBoardChange: (board: KanbanBoard) => void;
   onTaskMoved: (board: KanbanBoard, taskId: number, taskTitle: string) => void;
-  onBeforeCrossColumnMove: (taskId: number) => void;
-  registerMoveButtonRef: (taskId: number, el: HTMLButtonElement | null) => void;
+  onBeforeCrossColumnMove: (taskId: number, direction: MoveDirection) => void;
+  registerMoveButtonRef: (taskId: number, direction: MoveDirection, el: HTMLButtonElement | null) => void;
 }
 
 function TaskCard({
@@ -119,7 +122,7 @@ function TaskCard({
   async function handleMoveToAdjacentColumn(direction: "prev" | "next") {
     const destination = allColumns[direction === "prev" ? columnIndex - 1 : columnIndex + 1];
     if (!destination) return;
-    onBeforeCrossColumnMove(task.id);
+    onBeforeCrossColumnMove(task.id, direction);
     try {
       const board = await moveTask(task.id, { column_id: destination.id, position: destination.taskCount });
       onTaskMoved(board, task.id, task.title);
@@ -222,7 +225,7 @@ function TaskCard({
           <div className="mt-2 flex gap-1" role="group" aria-label="Mover tarea">
             <button
               type="button"
-              ref={(el) => registerMoveButtonRef(task.id, el)}
+              ref={(el) => registerMoveButtonRef(task.id, "prev", el)}
               onClick={() => handleMoveToAdjacentColumn("prev")}
               disabled={isFirstColumn}
               aria-label="Mover a la columna anterior"
@@ -232,7 +235,7 @@ function TaskCard({
             </button>
             <button
               type="button"
-              ref={(el) => registerMoveButtonRef(task.id, el)}
+              ref={(el) => registerMoveButtonRef(task.id, "up", el)}
               onClick={() => handleReorderWithinColumn("up")}
               disabled={isFirstInColumn}
               aria-label="Subir"
@@ -242,7 +245,7 @@ function TaskCard({
             </button>
             <button
               type="button"
-              ref={(el) => registerMoveButtonRef(task.id, el)}
+              ref={(el) => registerMoveButtonRef(task.id, "down", el)}
               onClick={() => handleReorderWithinColumn("down")}
               disabled={isLastInColumn}
               aria-label="Bajar"
@@ -252,7 +255,7 @@ function TaskCard({
             </button>
             <button
               type="button"
-              ref={(el) => registerMoveButtonRef(task.id, el)}
+              ref={(el) => registerMoveButtonRef(task.id, "next", el)}
               onClick={() => handleMoveToAdjacentColumn("next")}
               disabled={isLastColumn}
               aria-label="Mover a la columna siguiente"
@@ -330,8 +333,8 @@ interface KanbanColumnViewProps {
   allColumns: MoveTargetColumn[];
   onBoardChange: (board: KanbanBoard) => void;
   onTaskMoved: (board: KanbanBoard, taskId: number, taskTitle: string) => void;
-  onBeforeCrossColumnMove: (taskId: number) => void;
-  registerMoveButtonRef: (taskId: number, el: HTMLButtonElement | null) => void;
+  onBeforeCrossColumnMove: (taskId: number, direction: MoveDirection) => void;
+  registerMoveButtonRef: (taskId: number, direction: MoveDirection, el: HTMLButtonElement | null) => void;
   dragOverColumnId: number | null;
   setDragOverColumnId: (id: number | null) => void;
   dragOverSlotKey: string | null;
@@ -432,8 +435,8 @@ export default function KanbanPage() {
   const [dragOverColumnId, setDragOverColumnId] = useState<number | null>(null);
   const [dragOverSlotKey, setDragOverSlotKey] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState("");
-  const [pendingFocusTaskId, setPendingFocusTaskId] = useState<number | null>(null);
-  const moveButtonRefs = useRef(new Map<number, HTMLButtonElement>());
+  const [pendingFocus, setPendingFocus] = useState<{ taskId: number; direction: MoveDirection } | null>(null);
+  const moveButtonRefs = useRef(new Map<string, HTMLButtonElement>());
 
   function loadData() {
     setIsLoading(true);
@@ -449,10 +452,17 @@ export default function KanbanPage() {
   useEffect(loadData, []);
 
   useEffect(() => {
-    if (pendingFocusTaskId === null) return;
-    const button = moveButtonRefs.current.get(pendingFocusTaskId);
-    button?.focus();
-    setPendingFocusTaskId(null);
+    if (!pendingFocus) return;
+    const { taskId, direction } = pendingFocus;
+    const candidateDirections = [direction, ...MOVE_DIRECTIONS.filter((candidate) => candidate !== direction)];
+    for (const candidate of candidateDirections) {
+      const button = moveButtonRefs.current.get(`${taskId}:${candidate}`);
+      if (button && !button.disabled) {
+        button.focus();
+        break;
+      }
+    }
+    setPendingFocus(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [board]);
 
@@ -461,11 +471,12 @@ export default function KanbanPage() {
     setAnnouncement(buildMoveAnnouncement(newBoard, taskId, taskTitle));
   }
 
-  function registerMoveButtonRef(taskId: number, el: HTMLButtonElement | null) {
+  function registerMoveButtonRef(taskId: number, direction: MoveDirection, el: HTMLButtonElement | null) {
+    const key = `${taskId}:${direction}`;
     if (el) {
-      moveButtonRefs.current.set(taskId, el);
+      moveButtonRefs.current.set(key, el);
     } else {
-      moveButtonRefs.current.delete(taskId);
+      moveButtonRefs.current.delete(key);
     }
   }
 
@@ -500,7 +511,7 @@ export default function KanbanPage() {
                   allColumns={allColumns}
                   onBoardChange={setBoard}
                   onTaskMoved={handleTaskMoved}
-                  onBeforeCrossColumnMove={setPendingFocusTaskId}
+                  onBeforeCrossColumnMove={(taskId, direction) => setPendingFocus({ taskId, direction })}
                   registerMoveButtonRef={registerMoveButtonRef}
                   dragOverColumnId={dragOverColumnId}
                   setDragOverColumnId={setDragOverColumnId}
