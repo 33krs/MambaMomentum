@@ -133,7 +133,10 @@ def _current_focus_streak(db: Session, user_id: int) -> int:
         return 0
 
     streak = 0
-    cursor = date.today()
+    # Focus-session timestamps are stored and aggregated in UTC, so the streak
+    # must use the same business day. Local server time can otherwise lag UTC
+    # around midnight and hide activity recorded today.
+    cursor = datetime.now(timezone.utc).date()
     while cursor in active_days:
         streak += 1
         cursor -= timedelta(days=1)
