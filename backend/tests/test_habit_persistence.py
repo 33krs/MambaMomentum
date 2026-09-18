@@ -30,6 +30,21 @@ def test_habit_is_owned_by_a_user_and_logs_store_business_dates(db):
     assert habit.logs[0].date == date(2026, 9, 1)
 
 
+def test_user_timezone_defaults_to_utc_and_roundtrips_an_iana_value(db):
+    default_user = create_user(db, "habit-timezone-default@example.com")
+    timezone_user = User(
+        email="habit-timezone-custom@example.com",
+        hashed_password="not-used",
+        timezone="America/Santiago",
+    )
+    db.add(timezone_user)
+    db.commit()
+    db.refresh(timezone_user)
+
+    assert default_user.timezone == "UTC"
+    assert timezone_user.timezone == "America/Santiago"
+
+
 @pytest.mark.parametrize(
     ("habit", "error_type"),
     [
