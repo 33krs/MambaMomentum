@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import analytics, auth, focus_sessions, kanban, workouts
+from app.api.v1.endpoints import analytics, auth, focus_sessions, habits, kanban, workouts
 
 api_router = APIRouter()
 
@@ -9,3 +9,4 @@ api_router.include_router(focus_sessions.router, prefix="/focus-sessions", tags=
 api_router.include_router(workouts.router, prefix="/workouts", tags=["workouts"])
 api_router.include_router(analytics.router, prefix="/analytics", tags=["analytics"])
 api_router.include_router(kanban.router, prefix="/kanban", tags=["kanban"])
+api_router.include_router(habits.router, prefix="/habits", tags=["habits"])
