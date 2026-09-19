@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 
 import { fetchFocusHeatmap, fetchFocusTrends, fetchSummary, fetchWorkoutVolume } from "../api/analytics";
 import HeatmapCalendar from "../components/charts/HeatmapCalendar";
@@ -49,6 +50,9 @@ export default function DashboardPage() {
             <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1.5 font-semibold">{focusMinutes} min de foco</span>
             <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1.5 font-semibold">{workouts} entrenamientos</span>
           </div>
+          <Link to="/habits" className="mt-6 inline-flex rounded-lg bg-white px-4 py-2 text-sm font-bold text-brand-700 shadow-sm transition hover:bg-brand-50 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-brand-700">
+            Abrir tracker de hábitos
+          </Link>
         </div>
       </header>
 

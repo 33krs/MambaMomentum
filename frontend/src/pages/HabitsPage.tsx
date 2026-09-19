@@ -1,5 +1,5 @@
 import axios from "axios";
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 
 import { archiveHabit, createHabit, fetchHabitStats, listHabits, markHabit, unmarkHabit, updateHabit } from "../api/habits";
 import Card from "../components/ui/Card";
@@ -58,11 +58,32 @@ export default function HabitsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState("");
+  const editNameInputRef = useRef<HTMLInputElement>(null);
+  const editTriggerRef = useRef<HTMLButtonElement | null>(null);
 
   const today = stats?.end ?? localDateValue();
   const activeHabits = habits.filter((habit) => habit.status === "active");
   const archivedHabits = habits.filter((habit) => habit.status === "archived");
   const weekDates = stats ? datesInRange(stats.start, stats.end) : [];
+  const isFutureDate = selectedDate > today;
+
+  useEffect(() => {
+    if (!editingHabit) return;
+    editNameInputRef.current?.focus();
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setEditingHabit(null);
+    }
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [editingHabit]);
+
+  useEffect(() => {
+    if (!editingHabit) editTriggerRef.current?.focus();
+  }, [editingHabit]);
+
+  function closeEditDialog() {
+    setEditingHabit(null);
+  }
 
   async function loadData() {
     setIsLoading(true);
@@ -234,8 +255,8 @@ export default function HabitsPage() {
                         <span className="truncate font-semibold text-slate-800 dark:text-slate-100">{habit.name}</span>
                       </div>
                       <div className="flex flex-wrap gap-2">
-                        <button type="button" onClick={() => void handleToggleLog(habit)} disabled={isSaving} aria-pressed={marked} className={`rounded-md px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${marked ? "bg-emerald-600 text-white hover:bg-emerald-700" : "bg-brand-600 text-white hover:bg-brand-700"}`}>{marked ? "Desmarcar" : "Marcar"}</button>
-                        <button type="button" onClick={() => setEditingHabit({ id: habit.id, name: habit.name, color: habit.color || "#64748b" })} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">Editar</button>
+                        <button type="button" onClick={() => void handleToggleLog(habit)} disabled={isSaving || isFutureDate} aria-pressed={marked} className={`rounded-md px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${marked ? "bg-emerald-600 text-white hover:bg-emerald-700" : "bg-brand-600 text-white hover:bg-brand-700"}`}>{marked ? "Desmarcar" : "Marcar"}</button>
+                        <button type="button" ref={editTriggerRef} onClick={(event) => { editTriggerRef.current = event.currentTarget; setEditingHabit({ id: habit.id, name: habit.name, color: habit.color || "#64748b" }); }} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">Editar</button>
                         <button type="button" onClick={() => void handleArchive(habit)} disabled={isSaving} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">Archivar</button>
                       </div>
                     </li>
@@ -273,19 +294,20 @@ export default function HabitsPage() {
         </Card>
       </div>
 
-      {editingHabit && <div role="dialog" aria-modal="true" aria-labelledby="edit-habit-title" className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/50 p-4">
+      {editingHabit && <div role="dialog" aria-modal="true" aria-labelledby="edit-habit-title" aria-describedby="edit-habit-description" className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/50 p-4">
         <form onSubmit={handleSaveEdit} className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl dark:bg-slate-900">
           <h2 id="edit-habit-title" className="text-xl font-bold text-slate-800 dark:text-slate-100">Editar hábito</h2>
+          <p id="edit-habit-description" className="sr-only">Edita el nombre y color del hábito. Presiona Escape para cancelar.</p>
           <div className="mt-4">
             <label htmlFor="edit-habit-name" className="block text-sm font-medium text-slate-700 dark:text-slate-300">Nombre del hábito</label>
-            <input id="edit-habit-name" value={editingHabit.name} onChange={(event) => setEditingHabit({ ...editingHabit, name: event.target.value })} maxLength={120} required autoFocus className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100" />
+            <input id="edit-habit-name" ref={editNameInputRef} value={editingHabit.name} onChange={(event) => setEditingHabit({ ...editingHabit, name: event.target.value })} maxLength={120} required className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100" />
           </div>
           <div className="mt-4">
             <label htmlFor="edit-habit-color" className="block text-sm font-medium text-slate-700 dark:text-slate-300">Color</label>
             <input id="edit-habit-color" type="color" value={editingHabit.color} onChange={(event) => setEditingHabit({ ...editingHabit, color: event.target.value })} className="mt-1 h-10 w-14 cursor-pointer rounded border border-slate-300 bg-white p-1 dark:border-slate-700 dark:bg-slate-800" />
           </div>
           <div className="mt-6 flex justify-end gap-3">
-            <button type="button" onClick={() => setEditingHabit(null)} className="rounded-md px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800">Cancelar</button>
+            <button type="button" onClick={closeEditDialog} className="rounded-md px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800">Cancelar</button>
             <button type="submit" disabled={isSaving} className="rounded-md bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60">Guardar cambios</button>
           </div>
         </form>

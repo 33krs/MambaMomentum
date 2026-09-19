@@ -92,6 +92,18 @@ describe("HabitsPage", () => {
     await waitFor(() => expect(mockedApi.markHabit).toHaveBeenCalledWith(1, "2026-09-16"));
   });
 
+  it("does not allow marking a future date", async () => {
+    mockInitialLoad();
+
+    renderPage();
+    await screen.findByText("Leer");
+
+    fireEvent.change(screen.getByLabelText("Fecha a registrar"), { target: { value: "2026-09-20" } });
+
+    expect(within(screen.getByLabelText("Hábitos activos")).getByRole("button", { name: "Marcar" })).toBeDisabled();
+    expect(mockedApi.markHabit).not.toHaveBeenCalled();
+  });
+
   it("edits and archives habits through accessible controls", async () => {
     mockInitialLoad();
     mockedApi.updateHabit.mockResolvedValueOnce(makeHabit({ name: "Leer un capítulo" }));
@@ -109,5 +121,23 @@ describe("HabitsPage", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: "Archivar" })).toBeEnabled());
     fireEvent.click(screen.getByRole("button", { name: "Archivar" }));
     await waitFor(() => expect(mockedApi.archiveHabit).toHaveBeenCalledWith(1));
+  });
+
+  it("focuses the edit dialog and restores focus after Escape", async () => {
+    mockInitialLoad();
+
+    renderPage();
+    await screen.findByText("Leer");
+
+    const editButton = screen.getByRole("button", { name: "Editar" });
+    editButton.focus();
+    fireEvent.click(editButton);
+    const dialog = screen.getByRole("dialog");
+
+    expect(within(dialog).getByLabelText("Nombre del hábito")).toHaveFocus();
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(editButton).toHaveFocus();
   });
 });
