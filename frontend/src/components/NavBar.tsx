@@ -9,6 +9,7 @@ const links = [
   { to: "/focus", label: "Concentración" },
   { to: "/workouts", label: "Entrenamientos" },
   { to: "/kanban", label: "Kanban" },
+  { to: "/habits", label: "Hábitos" },
 ];
 
 function linkClassName({ isActive }: { isActive: boolean }): string {
