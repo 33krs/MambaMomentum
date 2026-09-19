@@ -1,15 +1,23 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { fetchFocusHeatmap, fetchFocusTrends, fetchSummary, fetchWorkoutVolume } from "../api/analytics";
 import HeatmapCalendar from "../components/charts/HeatmapCalendar";
-import TrendBarChart from "../components/charts/TrendBarChart";
-import WeeklyVolumeChart from "../components/charts/WeeklyVolumeChart";
 import Card from "../components/ui/Card";
 import StatCard from "../components/ui/StatCard";
 import type { DashboardSummary, HeatmapPoint, TrendPoint, VolumePoint } from "../types";
 
 const TREND_PERIODS = [8, 12, 26];
+const TrendBarChart = lazy(() => import("../components/charts/TrendBarChart"));
+const WeeklyVolumeChart = lazy(() => import("../components/charts/WeeklyVolumeChart"));
+
+export function ChartLoadingFallback() {
+  return (
+    <div className="flex h-[280px] items-center justify-center" role="status" aria-live="polite">
+      <p className="text-sm text-slate-500 dark:text-slate-400">Cargando gráfico…</p>
+    </div>
+  );
+}
 
 export default function DashboardPage() {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
@@ -80,11 +88,15 @@ export default function DashboardPage() {
               ))}
             </div>
           </div>
-          <TrendBarChart data={trends} />
+          <Suspense fallback={<ChartLoadingFallback />}>
+            <TrendBarChart data={trends} />
+          </Suspense>
         </Card>
         <Card title="Series de entrenamiento semanal">
           <p className="-mt-2 mb-5 text-sm text-slate-500 dark:text-slate-400">Volumen registrado en tus rutinas.</p>
-          <WeeklyVolumeChart data={volume} />
+          <Suspense fallback={<ChartLoadingFallback />}>
+            <WeeklyVolumeChart data={volume} />
+          </Suspense>
         </Card>
       </div>
     </div>
