@@ -178,3 +178,42 @@ export interface KanbanTaskMoveInput {
   column_id: number;
   position: number;
 }
+
+export interface HabitLog {
+  id: number;
+  habit_id: number;
+  date: string;
+  created_at: string;
+}
+
+export interface Habit {
+  id: number;
+  user_id: number;
+  name: string;
+  color: string | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  logs: HabitLog[];
+}
+
+export interface HabitInput {
+  name: string;
+  color?: string | null;
+}
+
+export interface HabitUpdateInput {
+  name?: string;
+  color?: string | null;
+  status?: string;
+}
+
+export interface HabitStats {
+  start: string;
+  end: string;
+  active_habits: number;
+  elapsed_days: number;
+  completed: number;
+  percentage: number;
+  current_streak_days: number;
+}
