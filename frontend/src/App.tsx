@@ -1,3 +1,4 @@
+import { lazy, Suspense, type ReactNode } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 
 import Layout from "./components/Layout";
@@ -5,13 +6,32 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import { AuthProvider } from "./context/AuthContext";
 import { CategoriesProvider } from "./context/CategoriesContext";
 import { ThemeProvider } from "./context/ThemeContext";
-import DashboardPage from "./pages/DashboardPage";
-import FocusSessionsPage from "./pages/FocusSessionsPage";
-import HabitsPage from "./pages/HabitsPage";
-import KanbanPage from "./pages/KanbanPage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
-import WorkoutsPage from "./pages/WorkoutsPage";
+
+const DashboardPage = lazy(() => import("./pages/DashboardPage"));
+const FocusSessionsPage = lazy(() => import("./pages/FocusSessionsPage"));
+const WorkoutsPage = lazy(() => import("./pages/WorkoutsPage"));
+const KanbanPage = lazy(() => import("./pages/KanbanPage"));
+const HabitsPage = lazy(() => import("./pages/HabitsPage"));
+
+export function RouteLoadingFallback() {
+  return (
+    <div className="flex min-h-48 items-center justify-center" role="status" aria-live="polite">
+      <p className="text-slate-500 dark:text-slate-400">Cargando contenido…</p>
+    </div>
+  );
+}
+
+function ProtectedPage({ children }: { children: ReactNode }) {
+  return (
+    <ProtectedRoute>
+      <Layout>
+        <Suspense fallback={<RouteLoadingFallback />}>{children}</Suspense>
+      </Layout>
+    </ProtectedRoute>
+  );
+}
 
 export default function App() {
   return (
@@ -24,51 +44,41 @@ export default function App() {
             <Route
               path="/"
               element={
-                <ProtectedRoute>
-                  <Layout>
-                    <DashboardPage />
-                  </Layout>
-                </ProtectedRoute>
+                <ProtectedPage>
+                  <DashboardPage />
+                </ProtectedPage>
               }
             />
             <Route
               path="/focus"
               element={
-                <ProtectedRoute>
-                  <Layout>
-                    <FocusSessionsPage />
-                  </Layout>
-                </ProtectedRoute>
+                <ProtectedPage>
+                  <FocusSessionsPage />
+                </ProtectedPage>
               }
             />
             <Route
               path="/workouts"
               element={
-                <ProtectedRoute>
-                  <Layout>
-                    <WorkoutsPage />
-                  </Layout>
-                </ProtectedRoute>
+                <ProtectedPage>
+                  <WorkoutsPage />
+                </ProtectedPage>
               }
             />
             <Route
               path="/kanban"
               element={
-                <ProtectedRoute>
-                  <Layout>
-                    <KanbanPage />
-                  </Layout>
-                </ProtectedRoute>
+                <ProtectedPage>
+                  <KanbanPage />
+                </ProtectedPage>
               }
             />
             <Route
               path="/habits"
               element={
-                <ProtectedRoute>
-                  <Layout>
-                    <HabitsPage />
-                  </Layout>
-                </ProtectedRoute>
+                <ProtectedPage>
+                  <HabitsPage />
+                </ProtectedPage>
               }
             />
             <Route path="*" element={<Navigate to="/" replace />} />
