@@ -43,7 +43,11 @@ function makeHabit(overrides?: Partial<Habit>): Habit {
 }
 
 function renderPage() {
-  return render(<MemoryRouter><HabitsPage /></MemoryRouter>);
+  return render(
+    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <HabitsPage />
+    </MemoryRouter>
+  );
 }
 
 function mockInitialLoad(habits: Habit[] = [makeHabit()]) {
