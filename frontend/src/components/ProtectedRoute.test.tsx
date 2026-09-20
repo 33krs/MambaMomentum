@@ -7,7 +7,10 @@ import ProtectedRoute from "./ProtectedRoute";
 
 function renderWithRoute() {
   return render(
-    <MemoryRouter initialEntries={["/"]}>
+    <MemoryRouter
+      initialEntries={["/"]}
+      future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+    >
       <Routes>
         <Route path="/login" element={<div>Página de login</div>} />
         <Route
